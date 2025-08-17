@@ -2,6 +2,7 @@
 <html>
 <head>
   <title>Live Selfie Capture</title>
+  <script defer src="https://cdn.jsdelivr.net/npm/face-api.js"></script>
   <style>
     html, body {
       margin: 0;
@@ -24,7 +25,7 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
-      transform: scaleX(-1); /* Mirror */
+      transform: scaleX(-1);
     }
 
     #face-guide {
@@ -71,13 +72,13 @@
     }
 
     #capture-flash.active {
-      opacity: 0.8;
+      opacity: 1;
     }
   </style>
 </head>
 <body>
   <div id="container">
-    <video id="video" autoplay playsinline></video>
+    <video id="video" autoplay muted playsinline></video>
     <canvas id="canvas" style="display:none;"></canvas>
     <div id="face-guide"></div>
     <div id="message">Align your face inside the circle...</div>
@@ -92,50 +93,76 @@
 
     const video = document.getElementById("video");
     const canvas = document.getElementById("canvas");
-    const message = document.getElementById("message");
     const flash = document.getElementById("capture-flash");
+    const message = document.getElementById("message");
 
-    if (sessionId) {
-      navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
-        .then(stream => {
-          video.srcObject = stream;
+    async function initCameraAndFaceDetection() {
+      await faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/face-api.js/models');
+      
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+      video.srcObject = stream;
 
-          setTimeout(() => {
-            message.innerText = "Capturing your selfie...";
+      const interval = setInterval(async () => {
+        const detections = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions());
+
+        if (detections) {
+          const { x, y, width, height } = detections.box;
+          const faceCenterX = x + width / 2;
+          const faceCenterY = y + height / 2;
+
+          const guide = document.getElementById("face-guide");
+          const guideRect = guide.getBoundingClientRect();
+
+          const isInside =
+            faceCenterX > guideRect.left &&
+            faceCenterX < guideRect.right &&
+            faceCenterY > guideRect.top &&
+            faceCenterY < guideRect.bottom;
+
+          if (isInside) {
+            clearInterval(interval);
+            message.innerText = "Capturing...";
             flash.classList.add("active");
 
-            // Trigger flash and snapshot
             setTimeout(() => {
+              captureImage();
+              stopCamera(stream);
               flash.classList.remove("active");
+              message.innerText = "✅ Selfie captured and submitted!";
+              document.body.style.background = "#fff";
+              document.body.innerHTML = `<h1 style='color:green;text-align:center;margin-top:30vh;'>✅ Selfie captured and submitted!</h1>`;
+            }, 1000);
+          } else {
+            message.innerText = "Please center your face inside the circle...";
+          }
+        } else {
+          message.innerText = "Face not detected. Please come in front of the camera.";
+        }
+      }, 500);
+    }
 
-              // Capture image
-              const context = canvas.getContext("2d");
-              canvas.width = video.videoWidth;
-              canvas.height = video.videoHeight;
-              context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    function captureImage() {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const context = canvas.getContext("2d");
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-              // Convert to base64
-              const imageData = canvas.toDataURL("image/jpeg");
+      const imageData = canvas.toDataURL("image/jpeg");
+      console.log(`[SESSION: ${sessionId}] 📸 Image Captured`, imageData);
+      // Use fetch() to send to backend if needed
+    }
 
-              // Simulated submission
-              message.innerText = "Uploading...";
+    function stopCamera(stream) {
+      stream.getTracks().forEach(track => track.stop());
+    }
 
-              setTimeout(() => {
-                message.innerText = "✅ Selfie captured and submitted!";
-                console.log(`[SESSION: ${sessionId}] 📸 Image captured`, imageData);
-                // You can use fetch() here to POST to a real server.
-              }, 2000);
-
-            }, 300);
-          }, 5000); // wait 5 seconds before auto-capture
-        })
-        .catch(err => {
-          message.innerText = "❌ Camera error: " + err.message;
-        });
+    if (sessionId) {
+      initCameraAndFaceDetection().catch(err => {
+        message.innerText = "❌ Error: " + err.message;
+      });
     } else {
-      message.innerText = "❌ Invalid session link.";
+      message.innerText = "❌ Invalid session ID.";
     }
   </script>
 </body>
 </html>
-
