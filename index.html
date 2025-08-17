@@ -1,90 +1,141 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>BLS Liveness Selfie</title>
+  <title>Live Selfie Capture</title>
   <style>
-    body {
+    html, body {
       margin: 0;
       padding: 0;
-      background-color: black;
+      background: black;
       color: white;
-      font-family: Arial, sans-serif;
-      text-align: center;
+      font-family: sans-serif;
+      overflow: hidden;
+      height: 100%;
     }
 
     #container {
       position: relative;
-      width: 100vw;
+      width: 100%;
       height: 100vh;
-      overflow: hidden;
     }
 
-    #selfie-video {
+    video, canvas {
+      position: absolute;
       width: 100%;
       height: 100%;
       object-fit: cover;
-      transform: scaleX(-1); /* Mirror selfie view */
+      transform: scaleX(-1); /* Mirror */
     }
 
-    #overlay {
+    #face-guide {
       position: absolute;
       top: 50%;
       left: 50%;
-      width: 250px;
-      height: 250px;
-      border: 4px solid rgba(0,255,0,0.6);
+      width: 280px;
+      height: 280px;
+      border: 4px solid rgba(0, 255, 0, 0.6);
       border-radius: 50%;
       transform: translate(-50%, -50%);
-      box-shadow: 0 0 20px rgba(0,255,0,0.3);
+      box-shadow: 0 0 20px rgba(0, 255, 0, 0.4);
+      z-index: 10;
     }
 
-    #instructions {
+    #message {
       position: absolute;
-      bottom: 20px;
+      bottom: 30px;
       left: 50%;
       transform: translateX(-50%);
-      font-size: 18px;
-      background-color: rgba(0,0,0,0.5);
+      background: rgba(0,0,0,0.6);
       padding: 10px 20px;
       border-radius: 10px;
+      font-size: 18px;
+      z-index: 11;
     }
 
     #session-id {
       position: absolute;
       top: 10px;
-      right: 10px;
+      left: 10px;
       font-size: 12px;
       opacity: 0.5;
+    }
+
+    #capture-flash {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      background: white;
+      opacity: 0;
+      transition: opacity 0.3s;
+      z-index: 999;
+    }
+
+    #capture-flash.active {
+      opacity: 0.8;
     }
   </style>
 </head>
 <body>
   <div id="container">
-    <video id="selfie-video" autoplay playsinline></video>
-    <div id="overlay"></div>
-    <div id="instructions">Please align your face inside the circle</div>
+    <video id="video" autoplay playsinline></video>
+    <canvas id="canvas" style="display:none;"></canvas>
+    <div id="face-guide"></div>
+    <div id="message">Align your face inside the circle...</div>
     <div id="session-id"></div>
+    <div id="capture-flash"></div>
   </div>
 
   <script>
     const hash = window.location.hash;
+    const sessionId = hash.startsWith("#/session/") ? hash.replace("#/session/", "") : null;
+    document.getElementById("session-id").innerText = sessionId ? `Session: ${sessionId}` : "Invalid session";
 
-    if (hash.startsWith("#/session/")) {
-      const sessionId = hash.replace("#/session/", "");
-      document.getElementById("session-id").innerText = `Session: ${sessionId}`;
+    const video = document.getElementById("video");
+    const canvas = document.getElementById("canvas");
+    const message = document.getElementById("message");
+    const flash = document.getElementById("capture-flash");
 
-      const video = document.getElementById("selfie-video");
-
+    if (sessionId) {
       navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
         .then(stream => {
           video.srcObject = stream;
+
+          setTimeout(() => {
+            message.innerText = "Capturing your selfie...";
+            flash.classList.add("active");
+
+            // Trigger flash and snapshot
+            setTimeout(() => {
+              flash.classList.remove("active");
+
+              // Capture image
+              const context = canvas.getContext("2d");
+              canvas.width = video.videoWidth;
+              canvas.height = video.videoHeight;
+              context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+              // Convert to base64
+              const imageData = canvas.toDataURL("image/jpeg");
+
+              // Simulated submission
+              message.innerText = "Uploading...";
+
+              setTimeout(() => {
+                message.innerText = "✅ Selfie captured and submitted!";
+                console.log(`[SESSION: ${sessionId}] 📸 Image captured`, imageData);
+                // You can use fetch() here to POST to a real server.
+              }, 2000);
+
+            }, 300);
+          }, 5000); // wait 5 seconds before auto-capture
         })
-        .catch(error => {
-          document.getElementById("instructions").innerText = `❌ Camera error: ${error.message}`;
+        .catch(err => {
+          message.innerText = "❌ Camera error: " + err.message;
         });
     } else {
-      document.body.innerHTML = "<h2>Invalid selfie session link.</h2>";
+      message.innerText = "❌ Invalid session link.";
     }
   </script>
 </body>
 </html>
+
