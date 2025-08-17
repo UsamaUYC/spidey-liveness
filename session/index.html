@@ -5,16 +5,20 @@
 </head>
 <body>
   <h2>📸 Selfie Session</h2>
-  <p>Please wait, the camera will open shortly...</p>
+  <p>Preparing your camera for live selfie...</p>
 
   <script>
     const url = window.location.href;
     const sessionId = url.split("/").pop();
 
-    // Here, you'd trigger camera or send sessionId to PC extension
-    alert("🪪 Session ID: " + sessionId);
+    // Display session ID for now (you can remove later)
+    document.body.innerHTML += `<p><strong>Session ID:</strong> ${sessionId}</p>`;
 
-    // In future: start camera, record selfie, send to background script
+    // Example: Trigger next selfie logic here
+    console.log("Selfie session started for:", sessionId);
+
+    // TODO: Later: start camera stream or send sessionId to Android extension
   </script>
 </body>
 </html>
+
