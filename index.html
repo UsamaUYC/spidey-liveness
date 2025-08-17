@@ -1,124 +1,108 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
   <title>Live Selfie Session</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     body {
-      background: #f9f9f9;
       font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 0;
       text-align: center;
+      padding: 2rem;
+      background: #fff;
+      color: #333;
     }
-    #videoContainer {
-      position: relative;
-      width: 100%;
-      max-width: 420px;
-      margin: 0 auto;
+    h2 {
+      margin-bottom: 1rem;
     }
-    video, canvas {
-      width: 100%;
-      border-radius: 12px;
+    #video {
+      max-width: 100%;
+      border: 2px solid #444;
+      border-radius: 10px;
+      margin-bottom: 1rem;
     }
-    canvas {
-      position: absolute;
-      top: 0;
-      left: 0;
+    #snap {
+      padding: 10px 20px;
+      font-size: 16px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    #snap:hover {
+      background-color: #0056b3;
     }
     #status {
-      margin-top: 12px;
       font-weight: bold;
+      margin-bottom: 20px;
     }
   </style>
 </head>
 <body>
-  <h2>🧑‍💻 Selfie Session</h2>
-  <p>Align your face inside the frame</p>
-  <div id="videoContainer">
-    <video id="video" autoplay muted playsinline></video>
-    <canvas id="overlay"></canvas>
-  </div>
-  <div id="status">🔎 Detecting face...</div>
+  <h2>📸 Selfie Session</h2>
+  <p>Preparing your camera for live selfie...</p>
+  <div id="status">Session ID: <span id="sessionId">loading...</span></div>
+  <video id="video" autoplay playsinline></video>
+  <canvas id="canvas" style="display:none;"></canvas>
+  <button id="snap" style="display:none;">📷 Take Selfie</button>
 
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface"></script>
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-database.js"></script>
 
   <script>
-    const video = document.getElementById('video');
-    const overlay = document.getElementById('overlay');
-    const ctx = overlay.getContext('2d');
-    const statusDiv = document.getElementById('status');
+    // Firebase Config
+    const firebaseConfig = {
+      apiKey: "AIzaSyArJrX8lMS4tM0F_aFML3PM5SdKG6UNo5M",
+      authDomain: "spidey-liveness.firebaseapp.com",
+      databaseURL: "https://spidey-liveness-default-rtdb.firebaseio.com",
+      projectId: "spidey-liveness",
+      storageBucket: "spidey-liveness.firebasestorage.app",
+      messagingSenderId: "309112382364",
+      appId: "1:309112382364:web:c22ff8003e336c74575e59"
+    };
 
-    async function setupCamera() {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // Get session ID from URL
+    const sessionId = window.location.pathname.split("/").pop();
+    document.getElementById("sessionId").innerText = sessionId;
+
+    // Tell PC: mobile user opened link
+    db.ref(`sessions/${sessionId}/status`).set("📱 Mobile link opened");
+
+    // Start camera
+    navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
+      const video = document.getElementById("video");
       video.srcObject = stream;
-      return new Promise(resolve => video.onloadedmetadata = resolve);
-    }
+      document.getElementById("snap").style.display = "inline-block";
+    }).catch(err => {
+      document.getElementById("status").innerText = "⚠️ Cannot access camera!";
+    });
 
-    async function detectFace() {
-      const model = await blazeface.load();
-      overlay.width = video.videoWidth;
-      overlay.height = video.videoHeight;
-
-      async function frame() {
-        const predictions = await model.estimateFaces(video, false);
-        ctx.clearRect(0, 0, overlay.width, overlay.height);
-
-        if (predictions.length > 0) {
-          const face = predictions[0];
-          const [x, y] = face.topLeft;
-          const [x2, y2] = face.bottomRight;
-          const width = x2 - x;
-          const height = y2 - y;
-
-          // Draw face box
-          ctx.strokeStyle = "lime";
-          ctx.lineWidth = 3;
-          ctx.strokeRect(x, y, width, height);
-
-          // Check if face is centered
-          const centerX = x + width / 2;
-          const centerY = y + height / 2;
-          const tolX = overlay.width / 3;
-          const tolY = overlay.height / 3;
-
-          if (
-            centerX > tolX && centerX < overlay.width - tolX &&
-            centerY > tolY && centerY < overlay.height - tolY
-          ) {
-            statusDiv.textContent = "✅ Face aligned, capturing...";
-            captureSelfie();
-            return;
-          } else {
-            statusDiv.textContent = "📐 Align your face in the frame";
-          }
-        } else {
-          statusDiv.textContent = "🔎 No face detected";
-        }
-
-        requestAnimationFrame(frame);
-      }
-
-      frame();
-    }
-
-    function captureSelfie() {
-      const canvas = document.createElement("canvas");
+    // Take selfie
+    document.getElementById("snap").addEventListener("click", () => {
+      const canvas = document.getElementById("canvas");
+      const video = document.getElementById("video");
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(video, 0, 0);
+      canvas.getContext("2d").drawImage(video, 0, 0);
+      const selfieData = canvas.toDataURL("image/png");
 
-      const imageData = canvas.toDataURL("image/png");
-      video.srcObject.getTracks().forEach(track => track.stop());
-      document.body.innerHTML = `<h2>✅ Selfie captured and submitted!</h2>`;
-      // send imageData to server or PC extension...
-      console.log("Captured selfie base64:", imageData);
-    }
+      // Send selfie to Firebase
+      db.ref(`sessions/${sessionId}/selfie`).set(selfieData);
+      db.ref(`sessions/${sessionId}/status`).set("📤 Selfie captured & sent");
 
-    setupCamera().then(detectFace);
+      // Show confirmation
+      document.body.innerHTML = `
+        <h2>✅ Selfie captured and submitted!</h2>
+        <p>Session ID: ${sessionId}</p>
+      `;
+    });
   </script>
 </body>
 </html>
+
