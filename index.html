@@ -1,168 +1,124 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Live Selfie Capture</title>
-  <script defer src="https://cdn.jsdelivr.net/npm/face-api.js"></script>
+  <meta charset="UTF-8">
+  <title>Live Selfie Session</title>
   <style>
-    html, body {
+    body {
+      background: #f9f9f9;
+      font-family: Arial, sans-serif;
       margin: 0;
       padding: 0;
-      background: black;
-      color: white;
-      font-family: sans-serif;
-      overflow: hidden;
-      height: 100%;
+      text-align: center;
     }
-
-    #container {
+    #videoContainer {
       position: relative;
       width: 100%;
-      height: 100vh;
+      max-width: 420px;
+      margin: 0 auto;
     }
-
     video, canvas {
-      position: absolute;
       width: 100%;
-      height: 100%;
-      object-fit: cover;
-      transform: scaleX(-1);
+      border-radius: 12px;
     }
-
-    #face-guide {
+    canvas {
       position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 280px;
-      height: 280px;
-      border: 4px solid rgba(0, 255, 0, 0.6);
-      border-radius: 50%;
-      transform: translate(-50%, -50%);
-      box-shadow: 0 0 20px rgba(0, 255, 0, 0.4);
-      z-index: 10;
+      top: 0;
+      left: 0;
     }
-
-    #message {
-      position: absolute;
-      bottom: 30px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0,0,0,0.6);
-      padding: 10px 20px;
-      border-radius: 10px;
-      font-size: 18px;
-      z-index: 11;
-    }
-
-    #session-id {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      font-size: 12px;
-      opacity: 0.5;
-    }
-
-    #capture-flash {
-      position: absolute;
-      width: 100%;
-      height: 100%;
-      background: white;
-      opacity: 0;
-      transition: opacity 0.3s;
-      z-index: 999;
-    }
-
-    #capture-flash.active {
-      opacity: 1;
+    #status {
+      margin-top: 12px;
+      font-weight: bold;
     }
   </style>
 </head>
 <body>
-  <div id="container">
+  <h2>🧑‍💻 Selfie Session</h2>
+  <p>Align your face inside the frame</p>
+  <div id="videoContainer">
     <video id="video" autoplay muted playsinline></video>
-    <canvas id="canvas" style="display:none;"></canvas>
-    <div id="face-guide"></div>
-    <div id="message">Align your face inside the circle...</div>
-    <div id="session-id"></div>
-    <div id="capture-flash"></div>
+    <canvas id="overlay"></canvas>
   </div>
+  <div id="status">🔎 Detecting face...</div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface"></script>
 
   <script>
-    const hash = window.location.hash;
-    const sessionId = hash.startsWith("#/session/") ? hash.replace("#/session/", "") : null;
-    document.getElementById("session-id").innerText = sessionId ? `Session: ${sessionId}` : "Invalid session";
+    const video = document.getElementById('video');
+    const overlay = document.getElementById('overlay');
+    const ctx = overlay.getContext('2d');
+    const statusDiv = document.getElementById('status');
 
-    const video = document.getElementById("video");
-    const canvas = document.getElementById("canvas");
-    const flash = document.getElementById("capture-flash");
-    const message = document.getElementById("message");
-
-    async function initCameraAndFaceDetection() {
-      await faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/face-api.js/models');
-      
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+    async function setupCamera() {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
       video.srcObject = stream;
+      return new Promise(resolve => video.onloadedmetadata = resolve);
+    }
 
-      const interval = setInterval(async () => {
-        const detections = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions());
+    async function detectFace() {
+      const model = await blazeface.load();
+      overlay.width = video.videoWidth;
+      overlay.height = video.videoHeight;
 
-        if (detections) {
-          const { x, y, width, height } = detections.box;
-          const faceCenterX = x + width / 2;
-          const faceCenterY = y + height / 2;
+      async function frame() {
+        const predictions = await model.estimateFaces(video, false);
+        ctx.clearRect(0, 0, overlay.width, overlay.height);
 
-          const guide = document.getElementById("face-guide");
-          const guideRect = guide.getBoundingClientRect();
+        if (predictions.length > 0) {
+          const face = predictions[0];
+          const [x, y] = face.topLeft;
+          const [x2, y2] = face.bottomRight;
+          const width = x2 - x;
+          const height = y2 - y;
 
-          const isInside =
-            faceCenterX > guideRect.left &&
-            faceCenterX < guideRect.right &&
-            faceCenterY > guideRect.top &&
-            faceCenterY < guideRect.bottom;
+          // Draw face box
+          ctx.strokeStyle = "lime";
+          ctx.lineWidth = 3;
+          ctx.strokeRect(x, y, width, height);
 
-          if (isInside) {
-            clearInterval(interval);
-            message.innerText = "Capturing...";
-            flash.classList.add("active");
+          // Check if face is centered
+          const centerX = x + width / 2;
+          const centerY = y + height / 2;
+          const tolX = overlay.width / 3;
+          const tolY = overlay.height / 3;
 
-            setTimeout(() => {
-              captureImage();
-              stopCamera(stream);
-              flash.classList.remove("active");
-              message.innerText = "✅ Selfie captured and submitted!";
-              document.body.style.background = "#fff";
-              document.body.innerHTML = `<h1 style='color:green;text-align:center;margin-top:30vh;'>✅ Selfie captured and submitted!</h1>`;
-            }, 1000);
+          if (
+            centerX > tolX && centerX < overlay.width - tolX &&
+            centerY > tolY && centerY < overlay.height - tolY
+          ) {
+            statusDiv.textContent = "✅ Face aligned, capturing...";
+            captureSelfie();
+            return;
           } else {
-            message.innerText = "Please center your face inside the circle...";
+            statusDiv.textContent = "📐 Align your face in the frame";
           }
         } else {
-          message.innerText = "Face not detected. Please come in front of the camera.";
+          statusDiv.textContent = "🔎 No face detected";
         }
-      }, 500);
+
+        requestAnimationFrame(frame);
+      }
+
+      frame();
     }
 
-    function captureImage() {
+    function captureSelfie() {
+      const canvas = document.createElement("canvas");
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
-      const context = canvas.getContext("2d");
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(video, 0, 0);
 
-      const imageData = canvas.toDataURL("image/jpeg");
-      console.log(`[SESSION: ${sessionId}] 📸 Image Captured`, imageData);
-      // Use fetch() to send to backend if needed
+      const imageData = canvas.toDataURL("image/png");
+      video.srcObject.getTracks().forEach(track => track.stop());
+      document.body.innerHTML = `<h2>✅ Selfie captured and submitted!</h2>`;
+      // send imageData to server or PC extension...
+      console.log("Captured selfie base64:", imageData);
     }
 
-    function stopCamera(stream) {
-      stream.getTracks().forEach(track => track.stop());
-    }
-
-    if (sessionId) {
-      initCameraAndFaceDetection().catch(err => {
-        message.innerText = "❌ Error: " + err.message;
-      });
-    } else {
-      message.innerText = "❌ Invalid session ID.";
-    }
+    setupCamera().then(detectFace);
   </script>
 </body>
 </html>
