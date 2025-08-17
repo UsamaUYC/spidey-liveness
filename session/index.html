@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Live Selfie Session</title>
+</head>
+<body>
+  <h2>📸 Selfie Session</h2>
+  <p>Please wait, the camera will open shortly...</p>
+
+  <script>
+    const url = window.location.href;
+    const sessionId = url.split("/").pop();
+
+    // Here, you'd trigger camera or send sessionId to PC extension
+    alert("🪪 Session ID: " + sessionId);
+
+    // In future: start camera, record selfie, send to background script
+  </script>
+</body>
+</html>
