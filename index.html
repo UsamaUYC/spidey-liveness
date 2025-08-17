@@ -6,5 +6,25 @@
 <body>
   <h1>Welcome to the BLS Selfie Portal 🎥</h1>
   <p>This page is used to handle live selfie verification sessions for distant users.</p>
+
+  <div id="session-area" style="margin-top: 30px;"></div>
+
+  <script>
+    const hash = window.location.hash;
+    if (hash.startsWith("#/session/")) {
+      const sessionId = hash.replace("#/session/", "");
+      document.getElementById("session-area").innerHTML = `
+        <h2>📸 Selfie Session</h2>
+        <p><strong>Session ID:</strong> ${sessionId}</p>
+        <p>Preparing camera...</p>
+      `;
+
+      // 🔧 This is where Android extension can hook in to start the selfie process
+      console.log("📡 Trigger selfie for session:", sessionId);
+
+      // Future idea: window.postMessage() to communicate with Kiwi extension
+    }
+  </script>
 </body>
 </html>
+
