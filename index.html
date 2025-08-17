@@ -4,27 +4,39 @@
   <title>BLS Selfie Portal</title>
 </head>
 <body>
-  <h1>Welcome to the BLS Selfie Portal 🎥</h1>
+  <h1>📸 Welcome to the BLS Selfie Portal</h1>
   <p>This page is used to handle live selfie verification sessions for distant users.</p>
 
   <div id="session-area" style="margin-top: 30px;"></div>
+  <video id="selfie-video" autoplay playsinline width="300" style="display:none; margin-top:20px;"></video>
 
   <script>
     const hash = window.location.hash;
+
     if (hash.startsWith("#/session/")) {
       const sessionId = hash.replace("#/session/", "");
+
       document.getElementById("session-area").innerHTML = `
-        <h2>📸 Selfie Session</h2>
+        <h2>📷 Selfie Session</h2>
         <p><strong>Session ID:</strong> ${sessionId}</p>
-        <p>Preparing camera...</p>
+        <p>Preparing your camera for live selfie...</p>
       `;
 
-      // 🔧 This is where Android extension can hook in to start the selfie process
-      console.log("📡 Trigger selfie for session:", sessionId);
+      const video = document.getElementById("selfie-video");
 
-      // Future idea: window.postMessage() to communicate with Kiwi extension
+      // Try to get user's camera
+      navigator.mediaDevices.getUserMedia({ video: true })
+        .then(stream => {
+          video.srcObject = stream;
+          video.style.display = "block";
+        })
+        .catch(error => {
+          document.getElementById("session-area").innerHTML += `
+            <p style="color:red;">❌ Unable to access camera. Please allow permission.</p>
+            <p><small>${error.message}</small></p>
+          `;
+        });
     }
   </script>
 </body>
 </html>
-
