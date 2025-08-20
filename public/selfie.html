@@ -10,7 +10,6 @@
       padding: 0;
       overflow: hidden;
       background: #000;
-      color: white;
       font-family: Arial, sans-serif;
     }
 
@@ -21,10 +20,13 @@
     }
 
     video {
-      width: 100%;
-      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
       object-fit: cover;
-      transform: scaleX(-1); /* Flip horizontally */
+      transform: scaleX(-1); /* mirror horizontally */
     }
 
     #maskOverlay {
@@ -33,37 +35,37 @@
       left: 0;
       width: 100vw;
       height: 100vh;
+      background-color: rgba(255, 255, 255, 0.75); /* outer dim layer */
       pointer-events: none;
-      background-color: rgba(255,255,255,0.85);
-      -webkit-mask-image: radial-gradient(ellipse 30% 40% at 50% 50%, black 0%, transparent 100%);
-      mask-image: radial-gradient(ellipse 30% 40% at 50% 50%, black 0%, transparent 100%);
-      -webkit-mask-repeat: no-repeat;
-      mask-repeat: no-repeat;
-      -webkit-mask-position: center;
-      mask-position: center;
+      mask-image: radial-gradient(ellipse 32% 43% at 50% 50%, transparent 50%, black 51%);
+      -webkit-mask-image: radial-gradient(ellipse 32% 43% at 50% 50%, transparent 50%, black 51%);
+      mask-composite: exclude;
+      -webkit-mask-composite: destination-out;
     }
 
     #ovalOutline {
       position: absolute;
       top: 50%;
       left: 50%;
-      width: 60vw;
-      height: 75vh;
-      border: 4px solid rgba(255, 0, 0, 0.8);
+      width: 64vw;
+      height: 85vh;
+      border: 3px solid red;
       border-radius: 50% / 60%;
       transform: translate(-50%, -50%);
-      box-shadow: 0 0 20px rgba(255, 0, 0, 0.4);
       pointer-events: none;
+      box-shadow: 0 0 25px rgba(255, 0, 0, 0.4);
     }
 
     #prompt {
       position: absolute;
-      bottom: 12%;
+      top: 8%;
       width: 100%;
       text-align: center;
       font-size: 1.4em;
       font-weight: bold;
+      color: white;
       text-shadow: 0 0 10px black;
+      z-index: 2;
     }
 
     #status {
@@ -71,9 +73,10 @@
       top: 10px;
       left: 10px;
       font-size: 1em;
-      background: rgba(0, 0, 0, 0.5);
+      background: rgba(0, 0, 0, 0.6);
       padding: 6px 10px;
       border-radius: 6px;
+      z-index: 2;
     }
   </style>
 </head>
@@ -91,12 +94,17 @@
     const prompt = document.getElementById("prompt");
     const statusBox = document.getElementById("status");
 
-    const prompts = ["The face must be in the center", "Move closer", "Look at the screen"];
+    const prompts = [
+      "The face must be in the center",
+      "Move closer",
+      "Look at the screen"
+    ];
+
     let currentPrompt = 0;
     setInterval(() => {
       currentPrompt = (currentPrompt + 1) % prompts.length;
       prompt.textContent = prompts[currentPrompt];
-    }, 3000);
+    }, 3500);
 
     navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
       .then(stream => {
@@ -104,11 +112,12 @@
         statusBox.textContent = "📷 Camera ready";
       })
       .catch(err => {
-        statusBox.textContent = "❌ Error: " + err.message;
+        statusBox.textContent = "❌ Camera error: " + err.message;
       });
   </script>
 </body>
 </html>
+
 
 
 
