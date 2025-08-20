@@ -113,10 +113,12 @@
 
       statusBox.textContent = "⏳ Uploading selfie...";
 
-      const sessionId = new URLSearchParams(location.search).get("session");
+      // ✅ Extract sessionId from URL path, e.g., /selfie/abc123
+      const sessionId = location.pathname.split("/").pop();
+
       fetch(`https://spidey-liveness.onrender.com/upload/${sessionId}`, {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ image: base64 })
       })
       .then(res => {
@@ -133,3 +135,4 @@
   </script>
 </body>
 </html>
+
