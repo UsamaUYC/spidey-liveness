@@ -8,9 +8,9 @@
     html, body {
       margin: 0;
       background: #000;
-      color: white;
-      font-family: Arial, sans-serif;
       overflow: hidden;
+      font-family: Arial, sans-serif;
+      color: white;
     }
 
     #container {
@@ -23,28 +23,45 @@
       width: 100vw;
       height: 100vh;
       object-fit: cover;
+      transform: scaleX(-1); /* 👈 Fix left-right flip */
     }
 
-    #circle {
+    /* Oval area */
+    #oval {
       position: absolute;
-      width: 70vw;
-      height: 70vw;
-      border: 4px solid rgba(0,255,0,0.8);
-      border-radius: 50%;
+      width: 60vw;
+      height: 80vh;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      box-shadow: 0 0 20px rgba(0,255,0,0.5);
+      border: 4px solid rgba(0,255,0,0.8);
+      border-radius: 50% / 60%;
+      z-index: 10;
+      box-shadow: 0 0 25px rgba(0,255,0,0.6);
+    }
+
+    /* Dark overlay */
+    #mask {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.6);
+      backdrop-filter: blur(2px);
+      -webkit-mask-image: radial-gradient(ellipse 30vw 40vh at center, transparent 99%, black 100%);
+      mask-image: radial-gradient(ellipse 30vw 40vh at center, transparent 99%, black 100%);
+      pointer-events: none;
+      z-index: 9;
     }
 
     #prompt {
       position: absolute;
-      bottom: 15%;
+      bottom: 16%;
       width: 100%;
       text-align: center;
-      font-size: 1.5em;
+      font-size: 1.4em;
       font-weight: bold;
       text-shadow: 0 0 10px black;
+      z-index: 11;
     }
 
     #status {
@@ -55,11 +72,12 @@
       background: rgba(0,0,0,0.6);
       padding: 6px 10px;
       border-radius: 6px;
+      z-index: 11;
     }
 
     #capture {
       position: absolute;
-      bottom: 8%;
+      bottom: 6%;
       left: 50%;
       transform: translateX(-50%);
       padding: 14px 22px;
@@ -69,13 +87,15 @@
       border-radius: 50px;
       font-size: 1em;
       box-shadow: 0 0 10px #00cc00;
+      z-index: 11;
     }
   </style>
 </head>
 <body>
   <div id="container">
     <video id="camera" autoplay playsinline></video>
-    <div id="circle"></div>
+    <div id="mask"></div>
+    <div id="oval"></div>
     <div id="prompt">Face must be in circle</div>
     <div id="status">Initializing...</div>
     <button id="capture">Capture</button>
@@ -113,12 +133,11 @@
 
       statusBox.textContent = "⏳ Uploading selfie...";
 
-      // ✅ Extract sessionId from URL path, e.g., /selfie/abc123
-      const sessionId = location.pathname.split("/").pop();
+      const sessionId = window.location.pathname.split("/").pop();
 
-      fetch(`https://spidey-liveness.onrender.com/upload/${sessionId}`, {
+      fetch(`https://spidey-liveness.onrender.com/submit/${sessionId}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ image: base64 })
       })
       .then(res => {
@@ -135,4 +154,5 @@
   </script>
 </body>
 </html>
+
 
