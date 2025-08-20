@@ -8,10 +8,9 @@
     html, body {
       margin: 0;
       padding: 0;
-      background: #000;
       overflow: hidden;
+      background: #000;
       font-family: sans-serif;
-      color: white;
     }
 
     #container {
@@ -20,153 +19,101 @@
       height: 100vh;
     }
 
-    video {
+    #camera {
       position: absolute;
+      top: 0;
+      left: 0;
       width: 100vw;
       height: 100vh;
       object-fit: cover;
-      transform: scaleX(-1); /* fix mirror flip */
+      transform: scaleX(-1); /* fix mirrored movement */
     }
 
-    /* Dimming everything outside the oval */
-    #mask {
+    #mask-overlay {
       position: absolute;
       width: 100vw;
       height: 100vh;
       pointer-events: none;
+      z-index: 2;
     }
 
-    #mask::before {
-      content: "";
-      position: absolute;
+    svg {
       width: 100%;
       height: 100%;
-      background-color: rgba(255, 255, 255, 0.8);
-      mask-image: radial-gradient(ellipse 30% 40% at center, transparent 0%, black 100%);
-      -webkit-mask-image: radial-gradient(ellipse 30% 40% at center, transparent 0%, black 100%);
-      mask-repeat: no-repeat;
-      -webkit-mask-repeat: no-repeat;
-      mask-size: cover;
-      -webkit-mask-size: cover;
+      display: block;
     }
 
     #prompt {
       position: absolute;
-      top: 15%;
+      top: 12%;
       width: 100%;
       text-align: center;
       font-size: 1.5em;
       font-weight: bold;
-      text-shadow: 0 0 8px rgba(0, 0, 0, 0.8);
-      z-index: 10;
+      color: white;
+      text-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
+      z-index: 3;
     }
 
     #status {
       position: absolute;
       top: 10px;
       left: 10px;
-      background: rgba(0, 0, 0, 0.6);
       padding: 8px 12px;
-      border-radius: 8px;
       font-size: 0.95em;
-      z-index: 10;
+      background: rgba(0, 0, 0, 0.6);
+      border-radius: 8px;
+      color: white;
+      z-index: 3;
     }
   </style>
 </head>
 <body>
   <div id="container">
     <video id="camera" autoplay playsinline></video>
-    <div id="mask"></div>
+
+    <div id="mask-overlay">
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none">
+        <defs>
+          <mask id="cutout-mask">
+            <rect width="100%" height="100%" fill="white"/>
+            <ellipse cx="50" cy="50" rx="24" ry="32" fill="black" />
+          </mask>
+        </defs>
+        <rect width="100%" height="100%" fill="rgba(255,255,255,0.7)" mask="url(#cutout-mask)"/>
+      </svg>
+    </div>
+
     <div id="prompt">Initializing...</div>
-    <div id="status">Starting...</div>
+    <div id="status">Loading camera...</div>
   </div>
 
   <script>
-    const video = document.getElementById('camera');
-    const promptBox = document.getElementById('prompt');
-    const statusBox = document.getElementById('status');
+    const video = document.getElementById("camera");
+    const statusBox = document.getElementById("status");
+    const promptBox = document.getElementById("prompt");
 
-    let currentPromptIndex = 0;
-    const prompts = ["Look at the screen", "Turn your head left", "Turn your head right"];
-    let lastDetection = 0;
-    let stableStart = null;
-    const MIN_STABLE_TIME = 1500;
+    // 👇 prompts to simulate liveness steps
+    const prompts = ["Look at the screen", "Turn head left", "Turn head right"];
+    let promptIndex = 0;
+    setInterval(() => {
+      promptIndex = (promptIndex + 1) % prompts.length;
+      promptBox.textContent = prompts[promptIndex];
+    }, 4000);
 
-    async function startCamera() {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+    // 🎥 start camera
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
+      .then(stream => {
         video.srcObject = stream;
         statusBox.textContent = "📷 Camera ready";
-      } catch (e) {
-        statusBox.textContent = "❌ Camera error: " + e.message;
-      }
-    }
+      })
+      .catch(err => {
+        statusBox.textContent = "❌ Camera error: " + err.message;
+      });
 
-    function rotatePrompts() {
-      setInterval(() => {
-        currentPromptIndex = (currentPromptIndex + 1) % prompts.length;
-        promptBox.textContent = prompts[currentPromptIndex];
-      }, 4000);
-    }
-
-    function isFaceCentered() {
-      // Dummy logic; replace with real detection later
-      return true;
-    }
-
-    function autoCaptureLoop() {
-      const canvas = document.createElement("canvas");
-      const context = canvas.getContext("2d");
-
-      const check = () => {
-        if (!video.videoWidth) return requestAnimationFrame(check);
-
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-        const centered = isFaceCentered();
-        const now = Date.now();
-
-        if (centered) {
-          if (!stableStart) stableStart = now;
-          if (now - stableStart >= MIN_STABLE_TIME) {
-            statusBox.textContent = "✅ Capturing selfie...";
-            const base64 = canvas.toDataURL("image/jpeg");
-
-            const sessionId = new URLSearchParams(location.search).get("session");
-            fetch(`https://spidey-liveness.onrender.com/upload/${sessionId}`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ image: base64 })
-            })
-              .then(res => {
-                if (res.ok) {
-                  statusBox.textContent = "🎉 Selfie uploaded!";
-                } else {
-                  statusBox.textContent = "❌ Upload failed";
-                }
-              })
-              .catch(err => {
-                statusBox.textContent = "❌ Upload error: " + err.message;
-              });
-
-            return; // Stop checking
-          }
-        } else {
-          stableStart = null;
-        }
-
-        requestAnimationFrame(check);
-      };
-
-      check();
-    }
-
-    startCamera();
-    rotatePrompts();
-    autoCaptureLoop();
+    // 🧠 Placeholder for auto-capture logic & face detection (will be added later)
   </script>
 </body>
 </html>
+
 
