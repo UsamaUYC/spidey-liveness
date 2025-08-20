@@ -1,13 +1,14 @@
 const express = require("express");
+const cors = require("cors");
 const { v4: uuidv4 } = require("uuid");
 const path = require("path");
-const fs = require("fs");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+app.use(cors());
 app.use(express.json());
-app.use(express.static("public")); // Serves files from 'public' folder
+app.use(express.static("public"));
 
 const sessions = {};
 
@@ -33,12 +34,11 @@ app.post("/submit/:id", (req, res) => {
   res.json({ message: "Selfie received" });
 });
 
-// 🧠 Serve selfie.html for /selfie/:id
 app.get("/selfie/:id", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "selfie.html"));
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`✅ Server running on port ${PORT}`);
 });
 
