@@ -1,16 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Live Selfie</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     html, body {
       margin: 0;
       background: #000;
-      overflow: hidden;
-      font-family: Arial, sans-serif;
       color: white;
+      font-family: Arial, sans-serif;
+      overflow: hidden;
     }
 
     #container {
@@ -20,48 +20,45 @@
     }
 
     video {
+      position: absolute;
+      top: 0; left: 0;
       width: 100vw;
       height: 100vh;
       object-fit: cover;
-      transform: scaleX(-1); /* 👈 Fix left-right flip */
+      transform: rotate(0deg); /* prevent orientation auto flip */
     }
 
-    /* Oval area */
-    #oval {
+    #overlay {
       position: absolute;
-      width: 60vw;
-      height: 80vh;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      background-color: rgba(255, 255, 255, 0.3);
+      clip-path: ellipse(40vw 55vh at 50% 50%);
+      pointer-events: none;
+    }
+
+    #circle {
+      position: absolute;
+      width: 80vw;
+      height: 110vh;
+      border: 3px solid rgba(0,255,0,0.8);
+      border-radius: 50%;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      border: 4px solid rgba(0,255,0,0.8);
-      border-radius: 50% / 60%;
-      z-index: 10;
-      box-shadow: 0 0 25px rgba(0,255,0,0.6);
-    }
-
-    /* Dark overlay */
-    #mask {
-      position: absolute;
-      width: 100%;
-      height: 100%;
-      background: rgba(255, 255, 255, 0.6);
-      backdrop-filter: blur(2px);
-      -webkit-mask-image: radial-gradient(ellipse 30vw 40vh at center, transparent 99%, black 100%);
-      mask-image: radial-gradient(ellipse 30vw 40vh at center, transparent 99%, black 100%);
+      box-shadow: 0 0 20px rgba(0,255,0,0.4);
       pointer-events: none;
-      z-index: 9;
     }
 
     #prompt {
       position: absolute;
-      bottom: 16%;
+      bottom: 12%;
       width: 100%;
       text-align: center;
-      font-size: 1.4em;
+      font-size: 1.5em;
       font-weight: bold;
       text-shadow: 0 0 10px black;
-      z-index: 11;
     }
 
     #status {
@@ -72,87 +69,86 @@
       background: rgba(0,0,0,0.6);
       padding: 6px 10px;
       border-radius: 6px;
-      z-index: 11;
-    }
-
-    #capture {
-      position: absolute;
-      bottom: 6%;
-      left: 50%;
-      transform: translateX(-50%);
-      padding: 14px 22px;
-      background-color: #00cc00;
-      color: white;
-      border: none;
-      border-radius: 50px;
-      font-size: 1em;
-      box-shadow: 0 0 10px #00cc00;
-      z-index: 11;
     }
   </style>
 </head>
 <body>
   <div id="container">
     <video id="camera" autoplay playsinline></video>
-    <div id="mask"></div>
-    <div id="oval"></div>
-    <div id="prompt">Face must be in circle</div>
-    <div id="status">Initializing...</div>
-    <button id="capture">Capture</button>
+    <div id="overlay"></div>
+    <div id="circle"></div>
+    <div id="prompt">Initializing...</div>
+    <div id="status">⏳ Loading Camera...</div>
   </div>
 
   <script>
     const video = document.getElementById('camera');
     const prompt = document.getElementById('prompt');
     const statusBox = document.getElementById('status');
-    const captureBtn = document.getElementById('capture');
 
-    let currentPromptIndex = 0;
-    const prompts = ["Face must be in circle", "Move closer", "Look at the screen"];
+    let promptIndex = 0;
+    const prompts = ["Face must be in center", "Move closer", "Look at the screen"];
+    const sessionId = new URLSearchParams(location.search).get("session");
 
+    // Rotating prompts
     setInterval(() => {
-      currentPromptIndex = (currentPromptIndex + 1) % prompts.length;
-      prompt.textContent = prompts[currentPromptIndex];
+      promptIndex = (promptIndex + 1) % prompts.length;
+      prompt.textContent = prompts[promptIndex];
     }, 3000);
 
-    navigator.mediaDevices.getUserMedia({ video: true })
+    // Get camera
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
       .then(stream => {
         video.srcObject = stream;
         statusBox.textContent = "📷 Camera Ready";
+        startAutoCapture();
       })
       .catch(err => {
         statusBox.textContent = "❌ Camera error: " + err.message;
       });
 
-    captureBtn.onclick = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-      const base64 = canvas.toDataURL('image/jpeg');
+    // 🧠 Liveness Detection (Simple center-frame based capture)
+    function startAutoCapture() {
+      const canvas = document.createElement("canvas");
+      const context = canvas.getContext("2d");
 
-      statusBox.textContent = "⏳ Uploading selfie...";
+      const checkInterval = setInterval(() => {
+        const width = video.videoWidth;
+        const height = video.videoHeight;
+        if (!width || !height) return;
 
-      const sessionId = window.location.pathname.split("/").pop();
+        canvas.width = width;
+        canvas.height = height;
+        context.drawImage(video, 0, 0, width, height);
 
-      fetch(`https://spidey-liveness.onrender.com/submit/${sessionId}`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ image: base64 })
-      })
-      .then(res => {
-        if (res.ok) {
-          statusBox.textContent = "✅ Selfie uploaded!";
-        } else {
-          throw new Error("Upload failed");
-        }
-      })
-      .catch(err => {
-        statusBox.textContent = "❌ " + err.message;
-      });
-    };
+        // OPTIONAL: Add face detection logic here later.
+
+        // Simulate face centered after a short delay
+        clearInterval(checkInterval); // for now just once
+        statusBox.textContent = "⏳ Uploading selfie...";
+        const base64 = canvas.toDataURL('image/jpeg');
+
+        fetch(`https://spidey-liveness.onrender.com/upload/${sessionId}`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ image: base64 })
+        })
+        .then(res => {
+          if (res.ok) {
+            statusBox.textContent = "✅ Selfie uploaded!";
+          } else {
+            throw new Error("Upload failed");
+          }
+        })
+        .catch(err => {
+          statusBox.textContent = "❌ " + err.message;
+        });
+
+      }, 4000); // Check every 4 seconds (simulated)
+    }
   </script>
 </body>
 </html>
+
 
 
